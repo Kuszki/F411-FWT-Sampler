@@ -46,7 +46,7 @@ uint8_t dummy = 0;
 //
 //float32_t W[4];
 
-size_t adc_samples = 1024;
+size_t adc_samples = 10240;
 uint32_t* adc_value;
 
 int main(void)
