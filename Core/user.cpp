@@ -8,9 +8,12 @@
 #include "tim.h"
 #include "adc.h"
 #include "dma.h"
+#include "crc.h"
 
-//#define ARM_MATH_CM4
-//#include "arm_math.h"
+#include "matrix.hpp"
+
+#define ARM_MATH_CM4
+#include "arm_math.h"
 
 extern "C"
 {
@@ -29,33 +32,17 @@ extern DMA_HandleTypeDef hdma_adc1;
 volatile int doReq = 0;
 volatile int isDone = 1;
 
-uint8_t dummy = 0;
+const float32_t* A = get_matrix_ptr();
+const size_t N = 128;
 
-//const float32_t A[] =
-//{
-//	1, 2, 3, 4,
-//	5, 6, 7, 8,
-//	9, 1, 2, 3,
-//	4, 5, 6, 7
-//};
-//
-//const float32_t B[] =
-//{
-//	1, 2, 3, 4
-//};
-//
-//float32_t W[4];
+float32_t X[N];
+float32_t Y[N];
+uint32_t V[N];
 
-size_t adc_samples = 10240;
-uint32_t* adc_value;
+uint8_t dummy;
 
 int main(void)
 {
-	/* FPU initialization */
-	SCB->CPACR |= ((3 << 10*2) | (3 << 11*2));
-
-	adc_value = new uint32_t[adc_samples];
-
 	/* Reset of all peripherals, Initializes the Flash interface and the Systick. */
 	HAL_Init();
 
@@ -64,37 +51,44 @@ int main(void)
 
 	/* Initialize all configured peripherals */
 	MX_GPIO_Init();
+	MX_CRC_Init();
 	MX_DMA_Init();
 	MX_TIM2_Init();
 	MX_ADC1_Init();
 	MX_USART1_UART_Init();
 
 	HAL_UART_Receive_IT(&huart1, &dummy, 1);
+	HAL_ADC_Start_DMA(&hadc1, V, N);
 
-//	arm_matrix_instance_f32 mat_A;
-//	arm_mat_init_f32(&mat_A, 4, 4, (float32_t*) A);
-//
-//	arm_matrix_instance_f32 mat_B;
-//	arm_mat_init_f32(&mat_B, 4, 1, (float32_t*) B);
-//
-//	arm_matrix_instance_f32 mat_W;
-//	arm_mat_init_f32(&mat_W, 4, 1, (float32_t*) W);
-//	status = arm_mat_mult_f32(&mat_A, &mat_B, &mat_W);
+	arm_matrix_instance_f32 mat_A;
+	arm_mat_init_f32(&mat_A, N, N, (float32_t*) A);
 
-	HAL_ADC_Start_DMA(&hadc1, adc_value, adc_samples);
+	arm_matrix_instance_f32 mat_X;
+	arm_mat_init_f32(&mat_X, N, 1, X);
+
+	arm_matrix_instance_f32 mat_Y;
+	arm_mat_init_f32(&mat_Y, N, 1, Y);
 
 	while (1) if (doReq)
 	{
-		HAL_GPIO_WritePin(LED_OUT_GPIO_Port, GPIO_PIN_13, GPIO_PIN_RESET);
+		isDone = 0;
+
+		HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_RESET);
 		HAL_TIM_Base_Start_IT(&htim2);
 
-		isDone = 0;
 		while (!isDone);
-
-		HAL_UART_Transmit_DMA(&huart1, (uint8_t*) adc_value,
-				adc_samples*sizeof(uint32_t));
-
 		isDone = 0;
+
+//		HAL_GPIO_WritePin(DEBUG_OUT_GPIO_Port, DEBUG_OUT_Pin, GPIO_PIN_SET);
+
+		arm_q31_to_float((q31_t*) V, X, N);
+		arm_mat_scale_f32(&mat_X, 2147483648.0f, &mat_X);
+		arm_mat_mult_f32(&mat_A, &mat_X, &mat_Y);
+
+//		HAL_GPIO_WritePin(DEBUG_OUT_GPIO_Port, DEBUG_OUT_Pin, GPIO_PIN_RESET);
+
+		HAL_UART_Transmit_DMA(&huart1, (uint8_t*) V, N*sizeof(uint32_t));
+
 		while (!isDone);
 		doReq = 0;
 	}
@@ -102,7 +96,7 @@ int main(void)
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
-	HAL_GPIO_WritePin(LED_OUT_GPIO_Port, GPIO_PIN_13, GPIO_PIN_SET);
+	HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_SET);
 	HAL_TIM_Base_Stop_IT(&htim2);
 
 	isDone = 1;
@@ -110,7 +104,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-//	HAL_GPIO_TogglePin(LED_OUT_GPIO_Port, GPIO_PIN_13);
+	HAL_GPIO_TogglePin(LED_OUT_GPIO_Port, LED_OUT_Pin);
+	HAL_GPIO_TogglePin(DEBUG_OUT_GPIO_Port, DEBUG_OUT_Pin);
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
