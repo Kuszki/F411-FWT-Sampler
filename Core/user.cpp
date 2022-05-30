@@ -11,14 +11,12 @@
 #include "crc.h"
 
 #include "matrix.hpp"
-
-#define ARM_MATH_CM4
 #include "arm_math.h"
 
 #ifdef DEBUG
-#define DBG(x) x
+#define IF_DBG(x) x
 #else
-#define DBG(x)
+#define IF_DBG(x)
 #endif
 
 enum STATUS
@@ -46,7 +44,7 @@ extern DMA_HandleTypeDef hdma_adc1;
 volatile STATUS status = WAIT_FOR_USER;
 
 const float32_t* A = get_matrix_ptr();
-const size_t N = 6;//29696;
+const size_t N = 29696;
 
 const unsigned toDo = (N*sizeof(uint32_t)) / 10240;
 const unsigned toRs = (N*sizeof(uint32_t)) % 10240;
@@ -86,32 +84,27 @@ int main(void)
 //	arm_matrix_instance_f32 mat_Y;
 //	arm_mat_init_f32(&mat_Y, N, 1, Y);
 
-	while (1) switch (status)
+	while (1) if (status == WAIT_FOR_SEND)
 	{
-		case WAIT_FOR_SEND:
-		{
-			HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_RESET);
+		HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_RESET);
 
-			//		DBG(HAL_GPIO_WritePin(DEBUG_3_OUT_GPIO_Port, DEBUG_3_OUT_Pin, GPIO_PIN_SET));
+		//		DBG(HAL_GPIO_WritePin(DEBUG_3_OUT_GPIO_Port, DEBUG_3_OUT_Pin, GPIO_PIN_SET));
 
-			//		arm_q31_to_float((q31_t*) V, X, N);
-			//		arm_mat_scale_f32(&mat_X, 2147483648.0f, &mat_X);
-			//		arm_mat_mult_f32(&mat_A, &mat_X, &mat_Y);
+		//		arm_q31_to_float((q31_t*) V, X, N);
+		//		arm_mat_scale_f32(&mat_X, 2147483648.0f, &mat_X);
+		//		arm_mat_mult_f32(&mat_A, &mat_X, &mat_Y);
 
-			//		DBG(HAL_GPIO_WritePin(DEBUG_3_OUT_GPIO_Port, DEBUG_3_OUT_Pin, GPIO_PIN_RESET));
+		//		DBG(HAL_GPIO_WritePin(DEBUG_3_OUT_GPIO_Port, DEBUG_3_OUT_Pin, GPIO_PIN_RESET));
 
-			//		HAL_UART_Transmit_DMA(&huart1, (uint8_t*) V, N*sizeof(uint32_t));
+		//		HAL_UART_Transmit_DMA(&huart1, (uint8_t*) V, N*sizeof(uint32_t));
 
-			for (unsigned i = 0; i < toDo; ++i)
-				HAL_UART_Transmit(&huart1, (uint8_t*) (V + i*2560), 10240, 10000);
+		for (unsigned i = 0; i < toDo; ++i)
+			HAL_UART_Transmit(&huart1, (uint8_t*) (V + i*2560), 10240, 10000);
 
-			if (toRs)
-				HAL_UART_Transmit(&huart1, (uint8_t*) (V + toDo*2560), toRs, 10000);
+		if (toRs)
+			HAL_UART_Transmit(&huart1, (uint8_t*) (V + toDo*2560), toRs, 10000);
 
-			status = WAIT_FOR_USER;
-		}
-		break;
-		default: break;
+		status = WAIT_FOR_USER;
 	}
 }
 
@@ -119,7 +112,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
 {
 	if (status == WAIT_FOR_TRIGGER)
 	{
-		DBG(HAL_GPIO_WritePin(DEBUG_0_OUT_GPIO_Port, DEBUG_0_OUT_Pin, GPIO_PIN_SET));
+		IF_DBG(HAL_GPIO_WritePin(DEBUG_0_OUT_GPIO_Port, DEBUG_0_OUT_Pin, GPIO_PIN_SET));
 
 		htim2.Instance->DIER |= (0x1UL << (0U)); // Enable int
 		htim2.Instance->CR1 |= (0x1UL << (0U)); // Enable timer
@@ -133,7 +126,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
-	DBG(HAL_GPIO_WritePin(DEBUG_0_OUT_GPIO_Port, DEBUG_0_OUT_Pin, GPIO_PIN_RESET));
+	IF_DBG(HAL_GPIO_WritePin(DEBUG_0_OUT_GPIO_Port, DEBUG_0_OUT_Pin, GPIO_PIN_RESET));
 
 	HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_SET);
 
@@ -144,7 +137,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	DBG(HAL_GPIO_TogglePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin));
+	IF_DBG(HAL_GPIO_TogglePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin));
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
