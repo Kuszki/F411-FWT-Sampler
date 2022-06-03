@@ -19,6 +19,8 @@
 #define IF_DBG(x)
 #endif
 
+#define MANUAL_TRIGGER
+
 enum STATUS
 {
 	WAIT_FOR_USER,
@@ -106,6 +108,13 @@ int main(void)
 
 		status = WAIT_FOR_USER;
 	}
+#ifdef MANUAL_TRIGGER
+	else if (status == WAIT_FOR_TRIGGER)
+	{
+		HAL_Delay(1000);
+		HAL_GPIO_EXTI_Callback(0);
+	}
+#endif
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t pin)
