@@ -19,8 +19,6 @@
 #define IF_DBG(x)
 #endif
 
-#define MANUAL_TRIGGER
-
 enum STATUS
 {
 	WAIT_FOR_USER,
@@ -55,8 +53,7 @@ const unsigned toRs = (N*sizeof(uint32_t)) % 10240;
 //float32_t Y[N];
 
 uint32_t V[N];
-
-uint8_t dummy;
+uint8_t dummy = 0;
 
 int main(void)
 {
@@ -90,15 +87,15 @@ int main(void)
 	{
 		HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_RESET);
 
-		//		DBG(HAL_GPIO_WritePin(DEBUG_3_OUT_GPIO_Port, DEBUG_3_OUT_Pin, GPIO_PIN_SET));
+//		DBG(HAL_GPIO_WritePin(DEBUG_3_OUT_GPIO_Port, DEBUG_3_OUT_Pin, GPIO_PIN_SET));
 
-		//		arm_q31_to_float((q31_t*) V, X, N);
-		//		arm_mat_scale_f32(&mat_X, 2147483648.0f, &mat_X);
-		//		arm_mat_mult_f32(&mat_A, &mat_X, &mat_Y);
+//		arm_q31_to_float((q31_t*) V, X, N);
+//		arm_mat_scale_f32(&mat_X, 2147483648.0f, &mat_X);
+//		arm_mat_mult_f32(&mat_A, &mat_X, &mat_Y);
 
-		//		DBG(HAL_GPIO_WritePin(DEBUG_3_OUT_GPIO_Port, DEBUG_3_OUT_Pin, GPIO_PIN_RESET));
+//		DBG(HAL_GPIO_WritePin(DEBUG_3_OUT_GPIO_Port, DEBUG_3_OUT_Pin, GPIO_PIN_RESET));
 
-		//		HAL_UART_Transmit_DMA(&huart1, (uint8_t*) V, N*sizeof(uint32_t));
+//		HAL_UART_Transmit_DMA(&huart1, (uint8_t*) V, N*sizeof(uint32_t));
 
 		for (unsigned i = 0; i < toDo; ++i)
 			HAL_UART_Transmit(&huart1, (uint8_t*) (V + i*2560), 10240, 10000);
@@ -108,13 +105,11 @@ int main(void)
 
 		status = WAIT_FOR_USER;
 	}
-#ifdef MANUAL_TRIGGER
-	else if (status == WAIT_FOR_TRIGGER)
+	else if (dummy == 'a' && status == WAIT_FOR_TRIGGER)
 	{
 		HAL_Delay(1000);
 		HAL_GPIO_EXTI_Callback(0);
 	}
-#endif
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t pin)
