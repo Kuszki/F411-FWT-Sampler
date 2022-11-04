@@ -168,7 +168,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	HAL_UART_Receive_IT(huart, &dummy, 1);
 
-	if (status == WAIT_FOR_USER)
+	if (status == WAIT_FOR_USER || status == WAIT_FOR_TRIGGER)
 	{
 		switch (dummy)
 		{
@@ -194,5 +194,5 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-	status = WAIT_FOR_USER;
+	if (status == WAIT_FOR_UART) status = WAIT_FOR_USER;
 }
