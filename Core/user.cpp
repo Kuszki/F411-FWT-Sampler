@@ -28,7 +28,8 @@ enum STATUS
 	WAIT_FOR_ADC,
 	WAIT_FOR_SEND,
 	WAIT_FOR_DELAY,
-	WAIT_FOR_UART
+	WAIT_FOR_UART,
+	WAIT_FOR_USB
 };
 
 enum METHOD
@@ -116,11 +117,15 @@ int main(void)
 
 		status = WAIT_FOR_UART;
 #else
+		HAL_Delay(1000);
+
 		for (unsigned i = 0; i < toDo; ++i)
 			HAL_UART_Transmit(&huart1, (uint8_t*) (V + i*2560), 10240, 10000);
 
 		if (toRs)
 			HAL_UART_Transmit(&huart1, (uint8_t*) (V + toDo*2560), toRs, 10000);
+
+		HAL_Delay(1000);
 
 		status = WAIT_FOR_USER;
 #endif
@@ -129,6 +134,11 @@ int main(void)
 	{
 		HAL_Delay(1000);
 		HAL_GPIO_EXTI_Callback(666);
+	}
+	else if (status == WAIT_FOR_USB)
+	{
+		HAL_Delay(1000);
+		status = WAIT_FOR_TRIGGER;
 	}
 }
 
@@ -177,7 +187,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 				method = GET_ADC;
 			break;
 			case 's':
-				status = WAIT_FOR_TRIGGER;
+				status = WAIT_FOR_USB;
 				method = GET_ADC;
 			break;
 			case 'z':
@@ -185,7 +195,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 				method = GET_DWT;
 			break;
 			case 'x':
-				status = WAIT_FOR_TRIGGER;
+				status = WAIT_FOR_USB;
 				method = GET_DWT;
 			break;
 		}
