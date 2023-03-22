@@ -103,14 +103,14 @@ int main(void)
 #if SAMPLES_NUM == 128
 		if (method == GET_DWT)
 		{
-			IF_DBG(HAL_GPIO_WritePin(DEBUG_3_OUT_GPIO_Port, DEBUG_3_OUT_Pin, GPIO_PIN_SET));
+			IF_DBG(HAL_GPIO_WritePin(DEBUG_0_OUT_GPIO_Port, DEBUG_0_OUT_Pin, GPIO_PIN_SET));
 
 			arm_q31_to_float((q31_t*) V, X, N);
 			arm_mat_scale_f32(&mat_X, 2147483648.0f, &mat_X);
 			arm_mat_mult_f32(&mat_A, &mat_X, &mat_Y);
 			arm_float_to_q31(X, (q31_t*) V, N);
 
-			IF_DBG(HAL_GPIO_WritePin(DEBUG_3_OUT_GPIO_Port, DEBUG_3_OUT_Pin, GPIO_PIN_RESET));
+			IF_DBG(HAL_GPIO_WritePin(DEBUG_0_OUT_GPIO_Port, DEBUG_0_OUT_Pin, GPIO_PIN_RESET));
 		}
 
 		HAL_UART_Transmit_DMA(&huart1, (uint8_t*) V, N*sizeof(uint32_t));
@@ -146,11 +146,11 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
 {
 	if (status == WAIT_FOR_TRIGGER || pin == 666)
 	{
-		IF_DBG(HAL_GPIO_WritePin(DEBUG_0_OUT_GPIO_Port, DEBUG_0_OUT_Pin, GPIO_PIN_SET));
+		IF_DBG(HAL_GPIO_WritePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin, GPIO_PIN_SET));
 
-		htim2.Instance->DIER |= (0x1UL << (0U)); // Enable int
-		htim2.Instance->CR1 |= (0x1UL << (0U)); // Enable timer
-		htim2.Instance->EGR |= (0x1UL << (0U)); // Force update
+		htim2.Instance->DIER = htim2.Instance->DIER | (0x1UL << (0U)); // Enable int
+		htim2.Instance->CR1 = htim2.Instance->CR1 | (0x1UL << (0U)); // Enable timer
+		htim2.Instance->EGR = htim2.Instance->EGR | (0x1UL << (0U)); // Force update
 
 		htim2.State = HAL_TIM_STATE_BUSY; // Mark HAL status
 
@@ -160,18 +160,13 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
-	IF_DBG(HAL_GPIO_WritePin(DEBUG_0_OUT_GPIO_Port, DEBUG_0_OUT_Pin, GPIO_PIN_RESET));
+	IF_DBG(HAL_GPIO_WritePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin, GPIO_PIN_RESET));
 
 	HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_SET);
 
 	HAL_TIM_Base_Stop_IT(&htim2);
 
 	status = WAIT_FOR_SEND;
-}
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-	IF_DBG(HAL_GPIO_TogglePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin));
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
