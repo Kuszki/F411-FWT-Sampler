@@ -60,9 +60,17 @@ void Error_Handler(void);
 /* Private defines -----------------------------------------------------------*/
 #define LED_OUT_Pin GPIO_PIN_13
 #define LED_OUT_GPIO_Port GPIOC
+#define ADC_0_IN_Pin GPIO_PIN_0
+#define ADC_0_IN_GPIO_Port GPIOA
+#define ADC_2_IN_Pin GPIO_PIN_2
+#define ADC_2_IN_GPIO_Port GPIOA
 #define TRIGGER_IN_Pin GPIO_PIN_2
 #define TRIGGER_IN_GPIO_Port GPIOB
 #define TRIGGER_IN_EXTI_IRQn EXTI2_IRQn
+#define UART_1_TX_Pin GPIO_PIN_9
+#define UART_1_TX_GPIO_Port GPIOA
+#define UART_1_RX_Pin GPIO_PIN_10
+#define UART_1_RX_GPIO_Port GPIOA
 #define DEBUG_0_OUT_Pin GPIO_PIN_7
 #define DEBUG_0_OUT_GPIO_Port GPIOB
 #define DEBUG_1_OUT_Pin GPIO_PIN_8

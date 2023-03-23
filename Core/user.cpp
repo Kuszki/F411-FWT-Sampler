@@ -58,6 +58,8 @@ volatile METHOD method = GET_ADC;
 const float32_t* A = get_matrix_ptr();
 const size_t N = SAMPLES_NUM;
 
+static ADC_ChannelConfTypeDef adcConfig = { 0, 1, 0, 0 };
+
 #if SAMPLES_NUM == 128
 float32_t X[N];
 float32_t Y[N];
@@ -132,11 +134,13 @@ int main(void)
 	}
 	else if (status == WAIT_FOR_DELAY)
 	{
+		HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_SET);
 		HAL_Delay(1000);
 		HAL_GPIO_EXTI_Callback(666);
 	}
 	else if (status == WAIT_FOR_USB)
 	{
+		HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_SET);
 		HAL_Delay(1000);
 		status = WAIT_FOR_TRIGGER;
 	}
@@ -162,8 +166,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
 	IF_DBG(HAL_GPIO_WritePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin, GPIO_PIN_RESET));
 
-	HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_SET);
-
 	HAL_TIM_Base_Stop_IT(&htim2);
 
 	status = WAIT_FOR_SEND;
@@ -173,7 +175,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	HAL_UART_Receive_IT(huart, &dummy, 1);
 
-	if (status == WAIT_FOR_USER || status == WAIT_FOR_TRIGGER)
+	if (status == WAIT_FOR_TRIGGER && dummy == 'q') status = WAIT_FOR_USER;
+	else if (status == WAIT_FOR_USER)
 	{
 		switch (dummy)
 		{
@@ -192,6 +195,14 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			case 'x':
 				status = WAIT_FOR_USB;
 				method = GET_DWT;
+			break;
+			case '1':
+				adcConfig.Channel = ADC_CHANNEL_2;
+				HAL_ADC_ConfigChannel(&hadc1, &adcConfig);
+			break;
+			case '2':
+				adcConfig.Channel = ADC_CHANNEL_0;
+				HAL_ADC_ConfigChannel(&hadc1, &adcConfig);
 			break;
 		}
 	}
