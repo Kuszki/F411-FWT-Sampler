@@ -13,7 +13,8 @@
 #include "matrix.hpp"
 #include "arm_math.h"
 
-#define SAMPLES_NUM 29696
+#define SAMPLES_NUM 5 //29696
+#define DEBUG
 
 #ifdef DEBUG
 #define IF_DBG(x) x
@@ -87,8 +88,10 @@ int main(void)
 	MX_ADC1_Init();
 	MX_USART1_UART_Init();
 
+	HAL_NVIC_DisableIRQ(EXTI2_IRQn);
 	HAL_UART_Receive_IT(&huart1, &dummy, 1);
 	HAL_ADC_Start_DMA(&hadc1, V, N);
+
 #if SAMPLES_NUM == 128
 	arm_matrix_instance_f32 mat_A;
 	arm_mat_init_f32(&mat_A, N, N, (float32_t*) A);
@@ -142,24 +145,22 @@ int main(void)
 	{
 		HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_SET);
 		HAL_Delay(1000);
+
 		status = WAIT_FOR_TRIGGER;
+
+		HAL_NVIC_ClearPendingIRQ(EXTI2_IRQn);
+		HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 	}
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t pin)
 {
-	if (status == WAIT_FOR_TRIGGER || pin == 666)
-	{
-		IF_DBG(HAL_GPIO_WritePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin, GPIO_PIN_SET));
+	IF_DBG(HAL_GPIO_WritePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin, GPIO_PIN_SET));
 
-		htim2.Instance->DIER = htim2.Instance->DIER | (0x1UL << (0U)); // Enable int
-		htim2.Instance->CR1 = htim2.Instance->CR1 | (0x1UL << (0U)); // Enable timer
-		htim2.Instance->EGR = htim2.Instance->EGR | (0x1UL << (0U)); // Force update
+	HAL_TIM_Base_Start_IT(&htim2);
+	HAL_NVIC_DisableIRQ(EXTI2_IRQn);
 
-		htim2.State = HAL_TIM_STATE_BUSY; // Mark HAL status
-
-		status = WAIT_FOR_ADC;
-	}
+	status = WAIT_FOR_ADC;
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
@@ -168,6 +169,7 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 
 	HAL_TIM_Base_Stop_IT(&htim2);
 
+	htim2.Instance->CNT = 0;
 	status = WAIT_FOR_SEND;
 }
 
@@ -211,4 +213,9 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if (status == WAIT_FOR_UART) status = WAIT_FOR_USER;
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	IF_DBG(HAL_GPIO_TogglePin(DEBUG_0_OUT_GPIO_Port, DEBUG_0_OUT_Pin));
 }
