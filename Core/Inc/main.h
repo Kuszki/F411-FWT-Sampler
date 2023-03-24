@@ -57,6 +57,7 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define TIMER2_CNT 2000-1
 #define LED_OUT_Pin GPIO_PIN_13
 #define LED_OUT_GPIO_Port GPIOC
 #define ADC_0_IN_Pin GPIO_PIN_0

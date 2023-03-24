@@ -13,8 +13,7 @@
 #include "matrix.hpp"
 #include "arm_math.h"
 
-#define SAMPLES_NUM 5 //29696
-#define DEBUG
+#define SAMPLES_NUM 29696
 
 #ifdef DEBUG
 #define IF_DBG(x) x
@@ -59,7 +58,10 @@ volatile METHOD method = GET_ADC;
 const float32_t* A = get_matrix_ptr();
 const size_t N = SAMPLES_NUM;
 
-static ADC_ChannelConfTypeDef adcConfig = { 0, 1, 0, 0 };
+static GPIO_InitTypeDef trgConfig = { TRIGGER_IN_Pin, GPIO_MODE_IT_RISING, GPIO_NOPULL, 0, 0 };
+static GPIO_InitTypeDef stbConfig = { TRIGGER_IN_Pin, GPIO_MODE_ANALOG, GPIO_NOPULL, 0, 0 };
+static ADC_ChannelConfTypeDef adcConfig = { ADC_CHANNEL_2, 1, ADC_SAMPLETIME_15CYCLES, 0 };
+static uint32_t newAdcCh = adcConfig.Channel;
 
 #if SAMPLES_NUM == 128
 float32_t X[N];
@@ -69,8 +71,8 @@ const unsigned toDo = (N*sizeof(uint32_t)) / 10240;
 const unsigned toRs = (N*sizeof(uint32_t)) % 10240;
 #endif
 
-uint32_t V[N];
-uint8_t dummy = 0;
+static uint32_t V[N];
+static uint8_t dummy = 0;
 
 int main(void)
 {
@@ -88,7 +90,7 @@ int main(void)
 	MX_ADC1_Init();
 	MX_USART1_UART_Init();
 
-	HAL_NVIC_DisableIRQ(EXTI2_IRQn);
+	HAL_GPIO_Init(TRIGGER_IN_GPIO_Port, &stbConfig);
 	HAL_UART_Receive_IT(&huart1, &dummy, 1);
 	HAL_ADC_Start_DMA(&hadc1, V, N);
 
@@ -102,20 +104,20 @@ int main(void)
 	arm_matrix_instance_f32 mat_Y;
 	arm_mat_init_f32(&mat_Y, N, 1, Y);
 #endif
-	while (1) if (status == WAIT_FOR_SEND)
+	while (1)  if (status == WAIT_FOR_SEND)
 	{
 		HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_RESET);
 #if SAMPLES_NUM == 128
 		if (method == GET_DWT)
 		{
-			IF_DBG(HAL_GPIO_WritePin(DEBUG_0_OUT_GPIO_Port, DEBUG_0_OUT_Pin, GPIO_PIN_SET));
+			IF_DBG(HAL_GPIO_WritePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin, GPIO_PIN_SET));
 
 			arm_q31_to_float((q31_t*) V, X, N);
-			arm_mat_scale_f32(&mat_X, 2147483648.0f, &mat_X);
+			arm_mat_scale_f32(&mat_X, 1.0f, &mat_X);
 			arm_mat_mult_f32(&mat_A, &mat_X, &mat_Y);
-			arm_float_to_q31(X, (q31_t*) V, N);
+			arm_float_to_q31(Y, (q31_t*) V, N);
 
-			IF_DBG(HAL_GPIO_WritePin(DEBUG_0_OUT_GPIO_Port, DEBUG_0_OUT_Pin, GPIO_PIN_RESET));
+			IF_DBG(HAL_GPIO_WritePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin, GPIO_PIN_RESET));
 		}
 
 		HAL_UART_Transmit_DMA(&huart1, (uint8_t*) V, N*sizeof(uint32_t));
@@ -135,30 +137,43 @@ int main(void)
 		status = WAIT_FOR_USER;
 #endif
 	}
-	else if (status == WAIT_FOR_DELAY)
+	else if (status == WAIT_FOR_DELAY || status == WAIT_FOR_USB)
 	{
+		if (adcConfig.Channel != newAdcCh)
+		{
+			adcConfig.Channel = newAdcCh;
+			HAL_ADC_ConfigChannel(&hadc1, &adcConfig);
+		}
+
 		HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_SET);
 		HAL_Delay(1000);
-		HAL_GPIO_EXTI_Callback(666);
+
+		if (status == WAIT_FOR_DELAY) HAL_GPIO_EXTI_Callback(666);
+		else
+		{
+			HAL_GPIO_Init(TRIGGER_IN_GPIO_Port, &trgConfig);
+			status = WAIT_FOR_TRIGGER;
+		}
+
 	}
 	else if (status == WAIT_FOR_USB)
 	{
 		HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_SET);
 		HAL_Delay(1000);
 
-		status = WAIT_FOR_TRIGGER;
-
-		HAL_NVIC_ClearPendingIRQ(EXTI2_IRQn);
-		HAL_NVIC_EnableIRQ(EXTI2_IRQn);
 	}
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t pin)
 {
+	if (status != WAIT_FOR_TRIGGER && pin != 666) return;
+
 	IF_DBG(HAL_GPIO_WritePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin, GPIO_PIN_SET));
 
+	htim2.Instance->CNT = TIMER2_CNT;
+
 	HAL_TIM_Base_Start_IT(&htim2);
-	HAL_NVIC_DisableIRQ(EXTI2_IRQn);
+	HAL_GPIO_Init(TRIGGER_IN_GPIO_Port, &stbConfig);
 
 	status = WAIT_FOR_ADC;
 }
@@ -169,7 +184,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 
 	HAL_TIM_Base_Stop_IT(&htim2);
 
-	htim2.Instance->CNT = 0;
 	status = WAIT_FOR_SEND;
 }
 
@@ -199,12 +213,10 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 				method = GET_DWT;
 			break;
 			case '1':
-				adcConfig.Channel = ADC_CHANNEL_2;
-				HAL_ADC_ConfigChannel(&hadc1, &adcConfig);
+				newAdcCh = ADC_CHANNEL_2;
 			break;
 			case '2':
-				adcConfig.Channel = ADC_CHANNEL_0;
-				HAL_ADC_ConfigChannel(&hadc1, &adcConfig);
+				newAdcCh = ADC_CHANNEL_0;
 			break;
 		}
 	}
