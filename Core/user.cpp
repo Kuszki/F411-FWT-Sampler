@@ -61,7 +61,9 @@ const size_t N = SAMPLES_NUM;
 static GPIO_InitTypeDef trgConfig = { TRIGGER_IN_Pin, GPIO_MODE_IT_RISING, GPIO_NOPULL, 0, 0 };
 static GPIO_InitTypeDef stbConfig = { TRIGGER_IN_Pin, GPIO_MODE_ANALOG, GPIO_NOPULL, 0, 0 };
 static ADC_ChannelConfTypeDef adcConfig = { ADC_CHANNEL_2, 1, ADC_SAMPLETIME_15CYCLES, 0 };
+
 static uint32_t newAdcCh = adcConfig.Channel;
+static uint32_t newAdcSt = adcConfig.SamplingTime;
 
 #if SAMPLES_NUM == 128
 float32_t X[N];
@@ -139,9 +141,10 @@ int main(void)
 	}
 	else if (status == WAIT_FOR_DELAY || status == WAIT_FOR_USB)
 	{
-		if (adcConfig.Channel != newAdcCh)
+		if (adcConfig.Channel != newAdcCh || adcConfig.SamplingTime != newAdcSt)
 		{
 			adcConfig.Channel = newAdcCh;
+			adcConfig.SamplingTime = newAdcSt;
 			HAL_ADC_ConfigChannel(&hadc1, &adcConfig);
 		}
 
@@ -217,6 +220,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			break;
 			case '2':
 				newAdcCh = ADC_CHANNEL_0;
+			break;
+			case '3':
+				newAdcSt = ADC_SAMPLETIME_3CYCLES;
+			break;
+			case '4':
+				newAdcSt = ADC_SAMPLETIME_15CYCLES;
+			break;
+			case '5':
+				newAdcSt = ADC_SAMPLETIME_28CYCLES;
 			break;
 		}
 	}
