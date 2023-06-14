@@ -154,7 +154,7 @@ int main(void)
 		if (status == WAIT_FOR_DELAY) HAL_GPIO_EXTI_Callback(666);
 		else
 		{
-			HAL_GPIO_Init(TRIGGER_IN_GPIO_Port, &trgConfig);
+//			HAL_GPIO_Init(TRIGGER_IN_GPIO_Port, &trgConfig);
 			status = WAIT_FOR_TRIGGER;
 		}
 
@@ -173,10 +173,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t pin)
 
 	IF_DBG(HAL_GPIO_WritePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin, GPIO_PIN_SET));
 
-	htim2.Instance->CNT = TIMER2_CNT;
-
 	HAL_TIM_Base_Start_IT(&htim2);
-	HAL_GPIO_Init(TRIGGER_IN_GPIO_Port, &stbConfig);
+
+//	HAL_GPIO_Init(TRIGGER_IN_GPIO_Port, &stbConfig);
 
 	status = WAIT_FOR_ADC;
 }
@@ -186,6 +185,8 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	IF_DBG(HAL_GPIO_WritePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin, GPIO_PIN_RESET));
 
 	HAL_TIM_Base_Stop_IT(&htim2);
+
+	htim2.Instance->CNT = 0;
 
 	status = WAIT_FOR_SEND;
 }
