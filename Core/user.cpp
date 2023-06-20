@@ -15,11 +15,13 @@
 
 #define SAMPLES_NUM 29696
 
+//#define DEBUG
 #ifdef DEBUG
 #define IF_DBG(x) x
 #else
 #define IF_DBG(x)
 #endif
+#undef DEBUG
 
 enum STATUS
 {
@@ -60,7 +62,7 @@ const size_t N = SAMPLES_NUM;
 
 static GPIO_InitTypeDef trgConfig = { TRIGGER_IN_Pin, GPIO_MODE_IT_RISING, GPIO_NOPULL, 0, 0 };
 static GPIO_InitTypeDef stbConfig = { TRIGGER_IN_Pin, GPIO_MODE_ANALOG, GPIO_NOPULL, 0, 0 };
-static ADC_ChannelConfTypeDef adcConfig = { ADC_CHANNEL_2, 1, ADC_SAMPLETIME_15CYCLES, 0 };
+static ADC_ChannelConfTypeDef adcConfig = { ADC_CHANNEL_4, 1, ADC_SAMPLETIME_144CYCLES, 0 };
 
 static uint32_t newAdcCh = adcConfig.Channel;
 static uint32_t newAdcSt = adcConfig.SamplingTime;
@@ -95,6 +97,7 @@ int main(void)
 	HAL_GPIO_Init(TRIGGER_IN_GPIO_Port, &stbConfig);
 	HAL_UART_Receive_IT(&huart1, &dummy, 1);
 	HAL_ADC_Start_DMA(&hadc1, V, N);
+	HAL_Delay(1000);
 
 #if SAMPLES_NUM == 128
 	arm_matrix_instance_f32 mat_A;
@@ -151,10 +154,14 @@ int main(void)
 		HAL_GPIO_WritePin(LED_OUT_GPIO_Port, LED_OUT_Pin, GPIO_PIN_SET);
 		HAL_Delay(1000);
 
+		for (size_t i = 0; i < N; ++i) V[i] = 0;
+
 		if (status == WAIT_FOR_DELAY) HAL_GPIO_EXTI_Callback(666);
 		else
 		{
-//			HAL_GPIO_Init(TRIGGER_IN_GPIO_Port, &trgConfig);
+			HAL_GPIO_Init(TRIGGER_IN_GPIO_Port, &trgConfig);
+			HAL_Delay(1000);
+
 			status = WAIT_FOR_TRIGGER;
 		}
 
@@ -170,12 +177,13 @@ int main(void)
 void HAL_GPIO_EXTI_Callback(uint16_t pin)
 {
 	if (status != WAIT_FOR_TRIGGER && pin != 666) return;
+	else htim2.Instance->CNT = TIMER2_CNT;
 
 	IF_DBG(HAL_GPIO_WritePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin, GPIO_PIN_SET));
 
 	HAL_TIM_Base_Start_IT(&htim2);
 
-//	HAL_GPIO_Init(TRIGGER_IN_GPIO_Port, &stbConfig);
+	HAL_GPIO_Init(TRIGGER_IN_GPIO_Port, &stbConfig);
 
 	status = WAIT_FOR_ADC;
 }
@@ -185,8 +193,6 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	IF_DBG(HAL_GPIO_WritePin(DEBUG_1_OUT_GPIO_Port, DEBUG_1_OUT_Pin, GPIO_PIN_RESET));
 
 	HAL_TIM_Base_Stop_IT(&htim2);
-
-	htim2.Instance->CNT = 0;
 
 	status = WAIT_FOR_SEND;
 }
@@ -217,19 +223,34 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 				method = GET_DWT;
 			break;
 			case '1':
-				newAdcCh = ADC_CHANNEL_2;
+				newAdcCh = ADC_CHANNEL_4;
 			break;
 			case '2':
-				newAdcCh = ADC_CHANNEL_0;
+				newAdcCh = ADC_CHANNEL_2;
 			break;
 			case '3':
-				newAdcSt = ADC_SAMPLETIME_3CYCLES;
-			break;
-			case '4':
-				newAdcSt = ADC_SAMPLETIME_15CYCLES;
+				newAdcCh = ADC_CHANNEL_0;
 			break;
 			case '5':
+				newAdcSt = ADC_SAMPLETIME_3CYCLES;
+			break;
+			case '6':
+				newAdcSt = ADC_SAMPLETIME_15CYCLES;
+			break;
+			case '7':
 				newAdcSt = ADC_SAMPLETIME_28CYCLES;
+			break;
+			case '8':
+				newAdcSt = ADC_SAMPLETIME_56CYCLES;
+			break;
+			case '9':
+				newAdcSt = ADC_SAMPLETIME_84CYCLES;
+			break;
+			case '0':
+				newAdcSt = ADC_SAMPLETIME_112CYCLES;
+			break;
+			case '=':
+				newAdcSt = ADC_SAMPLETIME_144CYCLES;
 			break;
 		}
 	}
